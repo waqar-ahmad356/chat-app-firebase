@@ -25,6 +25,7 @@ import { PinnedMessageBanner } from "./PinnedMessageBanner";
 import { ForwardModal } from "./ForwardModal";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { GifPicker } from "./GifPicker";
+import { EmojiPicker } from "./EmojiPicker";
 import type { GifResult } from "@/app/src/services/gifService";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -62,6 +63,7 @@ export function ChatArea({ myUid, conversation, onMenuClick }: ChatAreaProps) {
 
   // GIF picker
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -380,6 +382,16 @@ export function ChatArea({ myUid, conversation, onMenuClick }: ChatAreaProps) {
                 onClose={() => setShowGifPicker(false)}
               />
             )}
+            {/* Emoji picker */}
+            {showEmojiPicker && (
+              <EmojiPicker
+                onSelect={(emoji) => {
+                  setInput((prev) => prev + emoji);
+                  textareaRef.current?.focus();
+                }}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            )}
             <textarea
               ref={textareaRef}
               rows={1}
@@ -395,17 +407,22 @@ export function ChatArea({ myUid, conversation, onMenuClick }: ChatAreaProps) {
               <button
                 type="button"
                 aria-label="Send GIF"
-                onClick={() => setShowGifPicker((v) => !v)}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:text-white"
+                onClick={() => { setShowGifPicker((v) => !v); setShowEmojiPicker(false); }}
+                className={["rounded-lg p-1.5 text-xs font-bold transition-colors", showGifPicker ? "text-indigo-400" : "text-slate-400 hover:text-white"].join(" ")}
               >
-                <span className="text-xs font-bold">GIF</span>
+                GIF
               </button>
 
               {/* Voice recorder */}
               <VoiceRecorder onRecorded={handleVoiceRecorded} />
 
-              {/* Emoji placeholder */}
-              <button aria-label="Emoji" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:text-white">
+              {/* Emoji button */}
+              <button
+                type="button"
+                aria-label="Emoji"
+                onClick={() => { setShowEmojiPicker((v) => !v); setShowGifPicker(false); }}
+                className={["rounded-lg p-1.5 transition-colors", showEmojiPicker ? "text-indigo-400" : "text-slate-400 hover:text-white"].join(" ")}
+              >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

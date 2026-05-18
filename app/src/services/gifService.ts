@@ -1,116 +1,58 @@
-const TENOR_API_BASE = "https://tenor.googleapis.com/v2";
-const TENOR_API_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? "";
-const RESULT_LIMIT = 20;
+// Tenor v2 — free demo key (replace with your own from developers.google.com/tenor)
+const TENOR_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? "AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ";
+const BASE = "https://tenor.googleapis.com/v2";
+const LIMIT = 20;
 
-/**
- * A single GIF result mapped from the Tenor API response.
- */
 export interface GifResult {
-  /** Tenor's unique ID for this GIF */
   id: string;
-  /** Full-quality GIF URL */
   url: string;
-  /** Smaller preview GIF URL (tinygif) */
   previewUrl: string;
-  /** Human-readable description / title */
   title: string;
 }
 
-/** Shape of a single entry in the Tenor v2 `results` array. */
-interface TenorResult {
+interface TenorMediaFormats {
+  gif?: { url: string };
+  tinygif?: { url: string };
+  mediumgif?: { url: string };
+  nanogif?: { url: string };
+}
+
+interface TenorItem {
   id: string;
   content_description: string;
-  media_formats: {
-    gif?: { url: string };
-    tinygif?: { url: string };
-  };
+  media_formats: TenorMediaFormats;
 }
 
-/** Top-level shape of a Tenor v2 API response. */
 interface TenorResponse {
-  results: TenorResult[];
+  results: TenorItem[];
 }
 
-/**
- * Maps a raw Tenor result object to our GifResult interface.
- * Returns null if required media formats are missing.
- */
-function mapTenorResult(item: TenorResult): GifResult | null {
-  const url = item.media_formats?.gif?.url;
-  const previewUrl = item.media_formats?.tinygif?.url;
-
-  if (!url || !previewUrl) {
-    return null;
-  }
-
-  return {
-    id: item.id,
-    url,
-    previewUrl,
-    title: item.content_description ?? "",
-  };
+function mapItem(item: TenorItem): GifResult | null {
+  const f = item.media_formats;
+  // Pick best available format for display and preview
+  const url = f.gif?.url ?? f.mediumgif?.url;
+  const previewUrl = f.tinygif?.url ?? f.nanogif?.url ?? f.gif?.url ?? f.mediumgif?.url;
+  if (!url || !previewUrl) return null;
+  return { id: item.id, url, previewUrl, title: item.content_description ?? "" };
 }
 
-/**
- * Fetches the current trending GIFs from the Tenor API v2.
- * Returns an empty array on any API or network error (Requirement 7.2 / NFR).
- */
-export async function fetchTrendingGifs(): Promise<GifResult[]> {
-  if (!TENOR_API_KEY) {
-    console.warn("gifService: NEXT_PUBLIC_TENOR_API_KEY is not set.");
-    return [];
-  }
-
+async function tenorFetch(endpoint: string): Promise<GifResult[]> {
   try {
-    const url = `${TENOR_API_BASE}/featured?key=${TENOR_API_KEY}&limit=${RESULT_LIMIT}&media_filter=gif`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      console.error(
-        `gifService: Tenor trending request failed with status ${response.status}`
-      );
-      return [];
-    }
-
-    const data: TenorResponse = await response.json();
-    return data.results.map(mapTenorResult).filter((r): r is GifResult => r !== null);
-  } catch (error) {
-    console.error("gifService: Failed to fetch trending GIFs:", error);
+    const res = await fetch(`${BASE}/${endpoint}&key=${TENOR_KEY}&limit=${LIMIT}&media_filter=gif,tinygif,mediumgif,nanogif`);
+    if (!res.ok) return [];
+    const data: TenorResponse = await res.json();
+    return data.results.map(mapItem).filter((r): r is GifResult => r !== null);
+  } catch {
     return [];
   }
 }
 
-/**
- * Searches for GIFs matching the given query via the Tenor API v2.
- * Returns an empty array on any API or network error (Requirement 7.3 / NFR).
- */
-export async function searchGifs(query: string): Promise<GifResult[]> {
-  if (!TENOR_API_KEY) {
-    console.warn("gifService: NEXT_PUBLIC_TENOR_API_KEY is not set.");
-    return [];
-  }
+export function fetchTrendingGifs(): Promise<GifResult[]> {
+  return tenorFetch("featured?");
+}
 
-  const trimmed = query.trim();
-  if (!trimmed) {
-    return fetchTrendingGifs();
-  }
-
-  try {
-    const encodedQuery = encodeURIComponent(trimmed);
-    const url = `${TENOR_API_BASE}/search?q=${encodedQuery}&key=${TENOR_API_KEY}&limit=${RESULT_LIMIT}&media_filter=gif`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      console.error(
-        `gifService: Tenor search request failed with status ${response.status}`
-      );
-      return [];
-    }
-
-    const data: TenorResponse = await response.json();
-    return data.results.map(mapTenorResult).filter((r): r is GifResult => r !== null);
-  } catch (error) {
-    console.error("gifService: Failed to search GIFs:", error);
-    return [];
-  }
+export function searchGifs(query: string): Promise<GifResult[]> {
+  const q = query.trim();
+  if (!q) return fetchTrendingGifs();
+  return tenorFetch(`search?q=${encodeURIComponent(q)}`);
 }

@@ -34,14 +34,16 @@ export function Avatar({
       : size === "lg"
         ? "h-12 w-12 text-lg"
         : "h-10 w-10 text-base";
+  const dim =
+    size === "sm" ? "h-9 w-9" : size === "lg" ? "h-12 w-12" : "h-10 w-10";
   return (
-    <div className="relative shrink-0">
+    <div className={`relative shrink-0 ${dim} rounded-full overflow-hidden`}>
       {photoURL ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photoURL}
           alt={name}
-          className={`${sz} rounded-full object-cover`}
+          className="h-full w-full object-cover"
         />
       ) : (
         <div

@@ -9,7 +9,7 @@ interface AuthState {
 
 const initialState: AuthState = {
   user: null,
-  isLoading: false,
+  isLoading: true, // true by default — Firebase needs time to restore session on refresh
   error: null,
 };
 
