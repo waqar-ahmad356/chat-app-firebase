@@ -15,6 +15,7 @@ import {
   logout,
 } from "@/app/src/services/authService";
 import { getFirebaseErrorMessage } from "@/app/src/lib/firebaseErrors";
+import { requiresEmailVerification } from "@/app/src/lib/auth/authHelpers";
 import { setUserStatus } from "@/app/src/services/profileService";
 import { auth } from "@/lib/firebase";
 import type {
