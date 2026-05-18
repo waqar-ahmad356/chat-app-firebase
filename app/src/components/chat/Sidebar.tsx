@@ -37,21 +37,23 @@ export function Avatar({
   const dim =
     size === "sm" ? "h-9 w-9" : size === "lg" ? "h-12 w-12" : "h-10 w-10";
   return (
-    <div className={`relative shrink-0 ${dim} rounded-full overflow-hidden`}>
-      {photoURL ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={photoURL}
-          alt={name}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div
-          className={`${sz} flex items-center justify-center rounded-full bg-indigo-600/30 font-semibold text-indigo-300`}
-        >
-          {name[0]?.toUpperCase() ?? "?"}
-        </div>
-      )}
+    <div className="relative shrink-0">
+      <div className={`${dim} rounded-full overflow-hidden`}>
+        {photoURL ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photoURL}
+            alt={name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className={`${sz} flex items-center justify-center rounded-full bg-indigo-600/30 font-semibold text-indigo-300`}
+          >
+            {name[0]?.toUpperCase() ?? "?"}
+          </div>
+        )}
+      </div>
       {status !== undefined && (
         <span
           className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-slate-900 ${STATUS_COLOR[status] ?? "bg-slate-500"}`}
