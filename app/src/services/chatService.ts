@@ -53,6 +53,7 @@ export interface Conversation {
   lastMessageAt: Date | null;
   unreadCount: Record<string, number>;
   pinnedMessages?: string[]; // array of message IDs, max 3
+  typing?: Record<string, number>; // uid -> timestamp when they started typing
 }
 
 /** Find or create a 1-on-1 conversation between two users */
@@ -175,6 +176,7 @@ export function subscribeToConversations(
         lastMessageAt: (data.lastMessageAt as Timestamp)?.toDate() ?? null,
         unreadCount: data.unreadCount ?? {},
         pinnedMessages: (data.pinnedMessages as string[]) ?? [],
+        typing: data.typing ?? undefined,
       };
     });
     // Sort newest first client-side
@@ -436,5 +438,35 @@ export async function sendGif(
     lastMessageAt: serverTimestamp(),
     [`unreadCount.${otherUid}`]:
       (await getUnreadCount(convId, otherUid)) + 1,
+  });
+}
+
+/** Set typing status for a user in a conversation */
+export async function setTyping(
+  conversationId: string,
+  uid: string,
+): Promise<void> {
+  await updateDoc(doc(db, "conversations", conversationId), {
+    [`typing.${uid}`]: Date.now(),
+  });
+}
+
+/** Clear typing status for a user in a conversation */
+export async function clearTyping(
+  conversationId: string,
+  uid: string,
+): Promise<void> {
+  await updateDoc(doc(db, "conversations", conversationId), {
+    [`typing.${uid}`]: null,
+  });
+}
+
+/** Delete a conversation for the current user (removes them from participants) */
+export async function deleteConversation(
+  conversationId: string,
+  uid: string,
+): Promise<void> {
+  await updateDoc(doc(db, "conversations", conversationId), {
+    participants: arrayRemove(uid),
   });
 }

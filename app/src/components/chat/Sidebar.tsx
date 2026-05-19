@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useProfileQuery } from "@/app/src/hooks/useProfile";
 import { useLogoutMutation } from "@/app/src/hooks/useAuth";
-import { getAllUsers } from "@/app/src/services/chatService";
+import { getAllUsers, deleteConversation } from "@/app/src/services/chatService";
 import type { RootState } from "@/app/src/redux/store";
 import type { Conversation } from "@/app/src/services/chatService";
 import type { ActivePanel } from "./ChatLayout";
@@ -112,6 +112,7 @@ export function Sidebar({
   const [allUsers, setAllUsers] = useState<UserEntry[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [usersLoaded, setUsersLoaded] = useState(false);
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
 
   function loadUsers() {
     if (!myUid) return;
@@ -301,41 +302,67 @@ export function Sidebar({
               const isActive =
                 conv.id === activeConvId && activePanel === "chat";
               return (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => onSelectConversation(conv.id)}
                   className={[
-                    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+                    "flex w-full items-center gap-3 max-w-[300px] overflow-hidden rounded-xl px-3 py-2.5 text-left transition-colors group",
                     isActive
                       ? "bg-indigo-600/20 text-white"
                       : "text-slate-300 hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <Avatar
-                    name={other?.displayName ?? "?"}
-                    photoURL={other?.photoURL ?? null}
-                    size="md"
-                    status={other?.status ?? "Offline"}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="truncate text-sm font-medium">
-                        {other?.displayName ?? "Unknown"}
+                  <button
+                    onClick={() => onSelectConversation(conv.id)}
+                    className="flex flex-1 min-w-0 items-center gap-3"
+                  >
+                    <Avatar
+                      name={other?.displayName ?? "?"}
+                      photoURL={other?.photoURL ?? null}
+                      size="md"
+                      status={other?.status ?? "Offline"}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="truncate text-sm font-medium">
+                          {other?.displayName ?? "Unknown"}
+                        </p>
+                        <span className="ml-2 shrink-0 text-xs text-slate-500">
+                          {formatTime(conv.lastMessageAt)}
+                        </span>
+                      </div>
+                      <p className="truncate max-w-[200px] text-left text-xs text-slate-500">
+                        {conv.lastMessage || "No messages yet"}
                       </p>
-                      <span className="ml-2 shrink-0 text-xs text-slate-500">
-                        {formatTime(conv.lastMessageAt)}
-                      </span>
                     </div>
-                    <p className="truncate text-xs text-slate-500">
-                      {conv.lastMessage || "No messages yet"}
-                    </p>
-                  </div>
-                  {unread > 0 && (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">
-                      {unread > 9 ? "9+" : unread}
-                    </span>
-                  )}
-                </button>
+                    {unread > 0 && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">
+                        {unread > 9 ? "9+" : unread}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingConvId(conv.id);
+                    }}
+                    className="shrink-0 rounded-lg p-1.5 text-slate-500 opacity-0 transition-opacity hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100"
+                    aria-label="Delete conversation"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
               );
             })}
           </>
@@ -397,6 +424,47 @@ export function Sidebar({
             })}
           </>
         )}
+
+      {/* Delete conversation confirmation dialog */}
+      {deletingConvId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setDeletingConvId(null)}
+        >
+          <div
+            className="max-w-72 rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="mb-1 text-sm font-semibold text-white">Delete conversation?</p>
+            <p className="mb-5 text-xs text-slate-400">This will remove the chat for you. The other person will still have access.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingConvId(null)}
+                className="rounded-lg px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (deletingConvId) {
+                    await deleteConversation(deletingConvId, myUid);
+                    setDeletingConvId(null);
+                    // If the deleted conversation was active, clear the active selection
+                    if (activeConvId === deletingConvId) {
+                      onSelectConversation("");
+                    }
+                  }
+                }}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

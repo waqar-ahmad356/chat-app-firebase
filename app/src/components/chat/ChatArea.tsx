@@ -15,6 +15,8 @@ import {
   forwardMessage,
   sendVoiceMessage,
   sendGif,
+  setTyping,
+  clearTyping,
 } from "@/app/src/services/chatService";
 import { uploadVoiceMessage } from "@/app/src/services/voiceService";
 import { Avatar } from "./Sidebar";
@@ -26,6 +28,7 @@ import { ForwardModal } from "./ForwardModal";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { GifPicker } from "./GifPicker";
 import { EmojiPicker } from "./EmojiPicker";
+import { TypingIndicator } from "./TypingIndicator";
 import type { GifResult } from "@/app/src/services/gifService";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -65,6 +68,9 @@ export function ChatArea({ myUid, conversation, onMenuClick }: ChatAreaProps) {
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
+  // Typing indicator
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editInputRef = useRef<HTMLTextAreaElement>(null);
@@ -103,6 +109,32 @@ export function ChatArea({ myUid, conversation, onMenuClick }: ChatAreaProps) {
     }
   }, [editingMessage]);
 
+  // Set typing status when user starts typing
+  useEffect(() => {
+    if (input.trim()) {
+      setTyping(conversation.id, myUid).catch(() => {});
+    }
+  }, [input, conversation.id, myUid]);
+
+  // Clear typing status when user sends a message or leaves
+  useEffect(() => {
+    return () => {
+      clearTyping(conversation.id, myUid).catch(() => {});
+    };
+  }, [conversation.id, myUid]);
+
+  // Listen to other user's typing status
+  useEffect(() => {
+    const otherTypingTimestamp = conversation.typing?.[otherUid];
+    if (otherTypingTimestamp) {
+      // Consider typing if timestamp is less than 3 seconds ago
+      const isTyping = Date.now() - otherTypingTimestamp < 3000;
+      setIsOtherTyping(isTyping);
+    } else {
+      setIsOtherTyping(false);
+    }
+  }, [conversation.typing, otherUid]);
+
   // Task 3.5 / 5.3 — scroll to a message by id
   const scrollToMessage = useCallback((msgId: string) => {
     const el = messageRefs.current[msgId];
@@ -132,6 +164,7 @@ export function ChatArea({ myUid, conversation, onMenuClick }: ChatAreaProps) {
     setReplyingTo(null);
     try {
       await sendMessage(conversation.id, myUid, text, otherUid, reply);
+      await clearTyping(conversation.id, myUid);
     } finally {
       setSending(false);
       textareaRef.current?.focus();
@@ -331,6 +364,7 @@ export function ChatArea({ myUid, conversation, onMenuClick }: ChatAreaProps) {
           });
           })()}
         </div>
+        {isOtherTyping && <TypingIndicator displayName={other?.displayName ?? "Someone"} />}
         <div ref={bottomRef} />
       </div>
 
